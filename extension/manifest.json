@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "DualControl",
+  "version": "0.1.0",
+  "description": "Pair two Chrome instances and keep their page and video playback in sync.",
+  "permissions": ["tabs", "scripting", "storage", "alarms", "offscreen"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "serviceWorker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "DualControl"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["mediaBridge.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}
