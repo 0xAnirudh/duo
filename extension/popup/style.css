@@ -1,10 +1,13 @@
 :root {
   color-scheme: dark;
   --bg: #16171b;
+  --panel: #1d1f25;
   --fg: #e9e9ec;
   --muted: #8b8d96;
   --line: #2a2c33;
   --accent: #5b8cff;
+  --good: #3ecf8e;
+  --bad: #ff6b6b;
 }
 
 * { box-sizing: border-box; }
@@ -34,14 +37,104 @@ body {
   letter-spacing: 0.02em;
 }
 
-.dc-mark {
+.dc-state {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dc-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #3b3d45;
+  transition: background 160ms ease;
+}
+.dc-dot.is-on { background: var(--good); }
+
+.dc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
 }
 
-.dc-empty {
-  margin: 16px 0 0;
+.dc-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--fg);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.dc-btn:hover:not(:disabled) { border-color: #3a3d46; }
+.dc-btn:disabled { opacity: 0.45; cursor: default; }
+
+.dc-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1020;
+  font-weight: 560;
+}
+
+.dc-link {
+  appearance: none;
+  border: 0;
+  background: none;
   color: var(--muted);
+  font: inherit;
+  padding: 8px 0 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dc-link:hover { color: var(--fg); }
+
+.dc-hint { margin: 14px 0 8px; color: var(--muted); }
+.dc-sub { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+
+.dc-code {
+  font: 600 30px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.16em;
+  text-align: center;
+  padding: 14px 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.dc-join { display: flex; gap: 8px; }
+
+.dc-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--fg);
+  padding: 8px 10px;
+  font: 600 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.14em;
+}
+.dc-input:focus { outline: none; border-color: var(--accent); }
+
+.dc-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 14px 0 12px;
+}
+.dc-label { color: var(--muted); }
+.dc-value { font-weight: 560; }
+
+.dc-error {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--bad);
 }
