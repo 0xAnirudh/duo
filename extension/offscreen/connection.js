@@ -57,8 +57,13 @@ export async function connect() {
         roomId: session.roomId,
         token: session.token,
       });
-      if (res?.room) absorb(res.room);
-      else announce('lost', { reason: res?.error ?? 'rejoin_failed' });
+      if (res?.room) {
+        absorb(res.room);
+      } else {
+        session = null;
+        chrome.storage.session.remove('dcSession');
+        announce('lost', { reason: res?.error ?? 'rejoin_failed' });
+      }
     }
     announce('status');
   });
