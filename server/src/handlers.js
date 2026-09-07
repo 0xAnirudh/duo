@@ -1,4 +1,5 @@
 import { T } from './protocol.js';
+import { registerClock } from './clock.js';
 import {
   createRoom,
   joinByCode,
@@ -25,6 +26,8 @@ function attach(socket, room) {
 }
 
 export function register(io, socket) {
+  registerClock(socket);
+
   socket.on(T.HELLO, (msg = {}, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};
 
