@@ -12,6 +12,18 @@ function Dot({ on }) {
   return <span className={`dc-dot ${on ? 'is-on' : ''}`} />;
 }
 
+function Latency({ status }) {
+  if (!status?.paired) return null;
+  const path = status.path === 'direct' ? 'Direct' : 'Relay';
+  const rtt = status.rtt;
+  return (
+    <span className="dc-state">
+      {path}
+      {rtt ? ` \u00b7 ${rtt.p50}ms` : ' \u00b7 \u2026'}
+    </span>
+  );
+}
+
 function CodeInput({ onSubmit, busy }) {
   const [value, setValue] = useState('');
   const clean = value.replace(/\D/g, '').slice(0, 6);
@@ -51,9 +63,11 @@ export default function App() {
       <header className="dc-head">
         <Dot on={paired} />
         <h1>DualControl</h1>
-        <span className="dc-state">
-          {paired ? 'Paired' : status?.connected ? 'Waiting' : 'Offline'}
-        </span>
+        {paired ? (
+          <Latency status={status} />
+        ) : (
+          <span className="dc-state">{status?.connected ? 'Waiting' : 'Offline'}</span>
+        )}
       </header>
 
       {error && <p className="dc-error">{MESSAGES[error] ?? error}</p>}
@@ -95,6 +109,14 @@ export default function App() {
               {status.amController ? 'This device' : 'The other device'}
             </span>
           </div>
+          {status.rtt && (
+            <div className="dc-row dc-row-tight">
+              <span className="dc-label">Round trip</span>
+              <span className="dc-value dc-mono">
+                p50 {status.rtt.p50}ms \u00b7 p95 {status.rtt.p95}ms
+              </span>
+            </div>
+          )}
           {!status.amController && (
             <button className="dc-btn dc-btn-primary" onClick={takeControl} disabled={busy}>
               Take control
