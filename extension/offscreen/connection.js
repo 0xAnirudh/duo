@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import { T, UNRELIABLE } from '../shared/protocol.js';
 import { serverUrl } from '../shared/config.js';
+import { syncClock, probe, latency, reset as resetClock } from './clock.js';
 
 let socket = null;
 let session = null;
@@ -24,6 +25,7 @@ export function status() {
     controllerId: session?.controllerId ?? null,
     amController: Boolean(session && session.controllerId === session.you),
     path: 'relay',
+    rtt: latency(),
   };
 }
 
@@ -39,6 +41,20 @@ function absorb(room) {
 
   chrome.storage.session.set({ dcSession: session });
   announce('status');
+  startClock();
+}
+
+let probeTimer = null;
+
+async function startClock() {
+  clearInterval(probeTimer);
+  await syncClock(socket);
+  announce('status');
+  probeTimer = setInterval(async () => {
+    if (!socket?.connected) return;
+    await probe(socket);
+    announce('status');
+  }, 10000);
 }
 
 export async function connect() {
@@ -123,6 +139,9 @@ export async function restore() {
 }
 
 export function leave() {
+  clearInterval(probeTimer);
+  probeTimer = null;
+  resetClock();
   session = null;
   chrome.storage.session.remove('dcSession');
   socket?.disconnect();
