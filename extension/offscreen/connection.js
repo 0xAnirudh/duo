@@ -12,7 +12,8 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 function announce(type, detail = {}) {
-  for (const fn of listeners) fn({ type, ...detail });
+  const payload = type === 'status' ? { status: status() } : detail;
+  for (const fn of listeners) fn({ type, ...payload });
 }
 
 export function status() {
