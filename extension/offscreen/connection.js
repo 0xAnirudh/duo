@@ -1,7 +1,14 @@
 import { io } from 'socket.io-client';
 import { T, UNRELIABLE } from '../shared/protocol.js';
 import { serverUrl } from '../shared/config.js';
-import { syncClock, probe, latency, reset as resetClock } from './clock.js';
+import {
+  syncClock,
+  probe,
+  latency,
+  serverNow,
+  clockOffset,
+  reset as resetClock,
+} from './clock.js';
 
 let socket = null;
 let session = null;
@@ -27,6 +34,7 @@ export function status() {
     amController: Boolean(session && session.controllerId === session.you),
     path: 'relay',
     rtt: latency(),
+    clockOffset: clockOffset(),
   };
 }
 
@@ -152,7 +160,9 @@ export function leave() {
 
 export function send(msg) {
   if (!session || !socket?.connected) return null;
+
+  const stamped = { ...msg, ts: msg.ts ?? serverNow() };
   const channel = UNRELIABLE.has(msg.t) ? 'relay:volatile' : 'relay';
-  socket.emit(channel, msg);
+  socket.emit(channel, stamped);
   return 'relay';
 }

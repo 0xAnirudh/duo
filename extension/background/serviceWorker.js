@@ -1,6 +1,14 @@
 import { ensureOffscreen } from './offscreenManager.js';
 import { CH, T } from '../shared/protocol.js';
-import { install as installUrlSync, applyRemoteUrl, adoptActiveTab } from './urlSync.js';
+import {
+  install as installUrlSync,
+  applyRemoteUrl,
+  adoptActiveTab,
+  ensureSyncedTab,
+  syncedTabId,
+} from './urlSync.js';
+
+const MEDIA = new Set([T.PLAY, T.PAUSE, T.SEEK, T.RATE, T.HEARTBEAT]);
 
 const KEEPALIVE_ALARM = 'dc-keepalive';
 
@@ -34,12 +42,26 @@ function toPopup(event) {
     .catch(() => {});
 }
 
+async function toContent(payload) {
+  const tabId = await syncedTabId();
+  if (tabId === null) return;
+
+  chrome.tabs.sendMessage(tabId, { channel: CH.TO_CONTENT, ...payload }).catch(() => {});
+}
+
 function onOffscreenEvent(event) {
   if (event.type === 'status' && event.status) {
     const wasDriving = live.amController;
+    const wasPaired = live.paired;
     Object.assign(live, event.status);
 
-    if (live.paired && live.amController && !wasDriving) adoptActiveTab();
+    if (live.paired && live.amController && !wasDriving) {
+      adoptActiveTab().then(() => toContent({ type: 'status', status: live }));
+    } else if (live.paired && !wasPaired) {
+      ensureSyncedTab().then(() => toContent({ type: 'status', status: live }));
+    } else {
+      toContent({ type: 'status', status: live });
+    }
   }
 
   if (event.type === 'peer-message') {
@@ -54,7 +76,9 @@ function onPeerMessage(msg) {
   if (!msg) return;
   if (msg.t === T.URL) {
     applyRemoteUrl(msg.url);
+    return;
   }
+  if (MEDIA.has(msg.t)) toContent({ msg });
 }
 
 installUrlSync({ live, sendToPeer });
@@ -74,6 +98,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case CH.FROM_OFFSCREEN:
       onOffscreenEvent(message);
+      return false;
+
+    case CH.FROM_CONTENT:
+
+      sendToPeer(message.msg);
       return false;
 
     default:

@@ -79,3 +79,8 @@ export async function applyRemoteUrl(url) {
 }
 
 export { syncedTabId };
+
+export async function ensureSyncedTab() {
+  if ((await syncedTabId()) !== null) return;
+  await adoptActiveTab();
+}
