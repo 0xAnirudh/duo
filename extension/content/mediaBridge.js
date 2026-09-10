@@ -1,6 +1,7 @@
 import { CH, T, TUNING } from '../shared/protocol.js';
 import { createSuppressor } from './echo.js';
 import { watchForVideo } from './videoTarget.js';
+import { expectedTime, decide, createRateController } from './drift.js';
 
 const suppress = createSuppressor({ windowMs: TUNING.SUPPRESS_MS });
 
@@ -9,6 +10,19 @@ const serverNow = () => Date.now() + live.clockOffset;
 
 let video = null;
 let detachListeners = null;
+
+const RATE_RESET_MS = TUNING.HEARTBEAT_MS * 1.5;
+
+const rateController = createRateController({
+  delayMs: RATE_RESET_MS,
+  setRate: (rate) => {
+    if (!video || video.playbackRate === rate) return;
+
+    suppress.apply(() => {
+      video.playbackRate = rate;
+    });
+  },
+});
 
 function post(msg) {
   chrome.runtime.sendMessage({ channel: CH.FROM_CONTENT, msg }).catch(() => {});
@@ -86,16 +100,60 @@ function applyInbound(msg) {
       break;
 
     case T.RATE:
+
+      rateController.forget();
       if (video.playbackRate === msg.rate) return;
       suppress.apply(() => {
         video.playbackRate = msg.rate;
       });
       break;
 
+    case T.HEARTBEAT:
+      onHeartbeat(msg);
+      break;
+
     default:
       break;
   }
 }
+
+function onHeartbeat(msg) {
+  if (!video || live.amController) return;
+
+  if (msg.paused && !video.paused) {
+    suppress.apply(() => video.pause());
+    return;
+  }
+  if (!msg.paused && video.paused) {
+    suppress.apply(() => video.play().catch(() => {}));
+  }
+
+  const expected = expectedTime(msg, serverNow());
+  const plan = decide(video.currentTime - expected, msg.rate);
+
+  if (plan.action === 'hold') return;
+
+  if (plan.action === 'seek') {
+    rateController.forget();
+    suppress.apply(() => {
+      video.currentTime = expected;
+    });
+    return;
+  }
+
+  rateController.nudge(plan.playbackRate, msg.rate);
+}
+
+setInterval(() => {
+  if (!video || !live.paired || !live.amController) return;
+  post({
+    t: T.HEARTBEAT,
+    mediaTime: video.currentTime,
+    rate: video.playbackRate,
+    paused: video.paused,
+    ts: serverNow(),
+  });
+}, TUNING.HEARTBEAT_MS);
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.channel !== CH.TO_CONTENT) return undefined;
