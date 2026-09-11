@@ -15,6 +15,7 @@ function roomView(room, selfId) {
     token: room.token,
     code: room.code,
     peerCount: room.members.size,
+    peers: [...room.members].filter((id) => id !== selfId),
     controllerId: room.controllerId,
     you: selfId,
   };
@@ -65,6 +66,12 @@ export function register(io, socket) {
     const roomId = socket.data.roomId;
     if (!roomId) return;
     socket.volatile.to(roomId).emit('relay', msg);
+  });
+
+  socket.on(T.SIGNAL, (msg) => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+    socket.to(roomId).emit(T.SIGNAL, { ...msg, from: socket.id });
   });
 
   socket.on(T.TAKE_CONTROL, () => {
