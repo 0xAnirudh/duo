@@ -9,10 +9,7 @@ async function sample(socket) {
   const t0 = Date.now();
   const { t1, t2 } = await socket.emitWithAck(T.CLOCK_REQ, { t0 });
   const t3 = Date.now();
-  return {
-    offset: (t1 - t0 + (t2 - t3)) / 2,
-    rtt: t3 - t0 - (t2 - t1),
-  };
+  return ntp({ t0, t1, t2, t3 });
 }
 
 export async function syncClock(socket, n = 7) {
@@ -61,3 +58,22 @@ export function reset() {
 
 export const serverNow = () => Date.now() + offset;
 export const clockOffset = () => offset;
+
+export function adoptOffset(value) {
+  offset = value;
+}
+
+export function anchorToSelf() {
+  offset = 0;
+}
+
+export function resetSamples() {
+  rtts.length = 0;
+}
+
+export function ntp({ t0, t1, t2, t3 }) {
+  return {
+    offset: (t1 - t0 + (t2 - t3)) / 2,
+    rtt: t3 - t0 - (t2 - t1),
+  };
+}

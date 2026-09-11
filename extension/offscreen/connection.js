@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import { T, UNRELIABLE } from '../shared/protocol.js';
 import { serverUrl } from '../shared/config.js';
+import { createDirectLink } from './webrtc.js';
 import {
   syncClock,
   probe,
@@ -8,10 +9,18 @@ import {
   serverNow,
   clockOffset,
   reset as resetClock,
+  adoptOffset,
+  anchorToSelf,
+  resetSamples,
+  record,
+  ntp,
 } from './clock.js';
 
 let socket = null;
 let session = null;
+
+let direct = null;
+const pendingClock = new Map();
 
 const listeners = new Set();
 export function subscribe(fn) {
@@ -32,7 +41,7 @@ export function status() {
     you: session?.you ?? null,
     controllerId: session?.controllerId ?? null,
     amController: Boolean(session && session.controllerId === session.you),
-    path: 'relay',
+    path: direct?.isOpen() ? 'direct' : 'relay',
     rtt: latency(),
     clockOffset: clockOffset(),
   };
@@ -44,6 +53,7 @@ function absorb(room) {
     token: room.token,
     code: room.code,
     you: room.you,
+    peerId: room.peers?.[0] ?? session?.peerId ?? null,
     peerCount: room.peerCount,
     controllerId: room.controllerId,
   };
@@ -60,8 +70,9 @@ async function startClock() {
   await syncClock(socket);
   announce('status');
   probeTimer = setInterval(async () => {
-    if (!socket?.connected) return;
-    await probe(socket);
+    if (direct?.isOpen()) await probeDirect();
+    else if (socket?.connected) await probe(socket);
+    else return;
     announce('status');
   }, 10000);
 }
@@ -95,19 +106,29 @@ export async function connect() {
 
   socket.on('disconnect', () => announce('status'));
 
-  socket.on(T.PEER_JOIN, () => {
+  socket.on(T.PEER_JOIN, ({ deviceId }) => {
     if (!session) return;
     session.peerCount = 2;
+    session.peerId = deviceId;
     session.code = null;
     announce('status');
     announce('peer', { present: true });
+    openDirect();
   });
 
   socket.on(T.PEER_LEAVE, () => {
     if (!session) return;
     session.peerCount = 1;
+    session.peerId = null;
+    closeDirect();
     announce('status');
     announce('peer', { present: false });
+  });
+
+  socket.on(T.SIGNAL, (msg) => {
+    if (!session) return;
+    if (!direct) openDirect();
+    direct?.handleSignal(msg).catch(() => {});
   });
 
   socket.on(T.CONTROLLER, ({ controllerId }) => {
@@ -118,7 +139,117 @@ export async function connect() {
 
   socket.on('relay', (msg) => announce('peer-message', { msg }));
 
+  if (session?.peerId) openDirect();
+
   return socket;
+}
+
+let directWasOpen = false;
+
+function openDirect() {
+  if (direct || !session?.peerId || !session?.you) return;
+
+  direct = createDirectLink({
+    selfId: session.you,
+    peerId: session.peerId,
+    sendSignal: (payload) => socket?.emit(T.SIGNAL, payload),
+    onMessage: onDirectMessage,
+    onStatus: onDirectStatus,
+  });
+
+  direct.start().catch(() => closeDirect());
+}
+
+function closeDirect() {
+  if (!direct) return;
+
+  directWasOpen = false;
+  direct.close();
+  direct = null;
+  pendingClock.clear();
+
+  resetSamples();
+  if (socket?.connected) syncClock(socket);
+  announce('status');
+}
+
+function onDirectStatus({ open }) {
+  if (open === directWasOpen) return;
+  directWasOpen = open;
+
+  if (open) {
+    resetSamples();
+    syncToPeer();
+  } else {
+    closeDirect();
+  }
+  announce('status');
+}
+
+function onDirectMessage(msg) {
+  if (msg.t === 'CLK_REQ') {
+    const t1 = Date.now();
+    direct?.send({ t: 'CLK_RES', id: msg.id, t0: msg.t0, t1, t2: Date.now() });
+    return;
+  }
+  if (msg.t === 'CLK_RES') {
+    const resolve = pendingClock.get(msg.id);
+    pendingClock.delete(msg.id);
+    resolve?.(msg);
+    return;
+  }
+  announce('peer-message', { msg });
+}
+
+let clockSeq = 0;
+
+async function directSample() {
+  const id = `c${(clockSeq += 1)}`;
+  const t0 = Date.now();
+
+  const res = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingClock.delete(id);
+      resolve(null);
+    }, 1000);
+    pendingClock.set(id, (value) => {
+      clearTimeout(timer);
+      resolve(value);
+    });
+    if (!direct?.send({ t: 'CLK_REQ', id, t0 })) {
+      clearTimeout(timer);
+      pendingClock.delete(id);
+      resolve(null);
+    }
+  });
+
+  if (!res) return null;
+  return ntp({ t0, t1: res.t1, t2: res.t2, t3: Date.now() });
+}
+
+async function probeDirect() {
+  const sample = await directSample();
+  if (sample) record(sample.rtt);
+  return sample?.rtt ?? null;
+}
+
+async function syncToPeer(n = 7) {
+  const samples = [];
+
+  for (let i = 0; i < n; i += 1) {
+    const sample = await directSample();
+    if (!sample) break;
+    samples.push(sample);
+  }
+
+  if (!samples.length) return;
+  samples.sort((a, b) => a.rtt - b.rtt);
+
+  if (direct?.initiator) anchorToSelf();
+  else adoptOffset(samples[0].offset);
+
+  record(samples[0].rtt);
+  announce('status');
 }
 
 export async function host() {
@@ -148,6 +279,7 @@ export async function restore() {
 }
 
 export function leave() {
+  closeDirect();
   clearInterval(probeTimer);
   probeTimer = null;
   resetClock();
@@ -159,10 +291,14 @@ export function leave() {
 }
 
 export function send(msg) {
-  if (!session || !socket?.connected) return null;
+  if (!session) return null;
 
   const stamped = { ...msg, ts: msg.ts ?? serverNow() };
-  const channel = UNRELIABLE.has(msg.t) ? 'relay:volatile' : 'relay';
-  socket.emit(channel, stamped);
+  const unreliable = UNRELIABLE.has(msg.t);
+
+  if (direct?.send(stamped, unreliable)) return 'direct';
+
+  if (!socket?.connected) return null;
+  socket.emit(unreliable ? 'relay:volatile' : 'relay', stamped);
   return 'relay';
 }
