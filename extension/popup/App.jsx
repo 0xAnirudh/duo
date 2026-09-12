@@ -84,7 +84,7 @@ function Guide({ onClose }) {
         </li>
       </ol>
       <div className="dc-foot" style={{ marginTop: 12 }}>
-        <button className="dc-link dc-spacer" onClick={onClose}>
+        <button className="dc-ghost dc-spacer" onClick={onClose}>
           Close
         </button>
       </div>
@@ -199,17 +199,16 @@ export default function App() {
       {!guide && (
         <div className="glass dc-body dc-fade">
           <NameField value={status?.deviceName} onSave={setName} />
-          <p className="dc-sub">Shown on the other device instead of “the other device”.</p>
         </div>
       )}
 
       {!guide && (
         <div className="dc-foot">
-          <button className="dc-link" onClick={() => setGuide(true)}>
+          <button className="dc-ghost" onClick={() => setGuide(true)}>
             Guide
           </button>
           {paired && (
-            <button className="dc-link dc-link-danger dc-spacer" onClick={leave}>
+            <button className="dc-ghost dc-ghost-danger dc-spacer" onClick={leave}>
               Unpair
             </button>
           )}
