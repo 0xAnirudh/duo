@@ -3,6 +3,7 @@ services:
     name: dualcontrol
     runtime: node
     plan: free
+    region: singapore
     rootDir: server
     buildCommand: npm ci --omit=dev
     startCommand: node src/index.js
