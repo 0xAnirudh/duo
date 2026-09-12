@@ -1,6 +1,6 @@
 import { ensureOffscreen } from './offscreenManager.js';
 import { CH, T } from '../shared/protocol.js';
-import { serverUrl } from '../shared/config.js';
+import { serverUrl, syncOffsetMs, setSyncOffsetMs } from '../shared/config.js';
 import {
   install as installUrlSync,
   applyRemoteUrl,
@@ -13,9 +13,10 @@ const MEDIA = new Set([T.PLAY, T.PAUSE, T.SEEK, T.RATE, T.HEARTBEAT]);
 
 const KEEPALIVE_ALARM = 'dc-keepalive';
 
-export const live = { paired: false, amController: false, you: null };
+export const live = { paired: false, amController: false, you: null, syncOffsetMs: 0 };
 
 async function boot() {
+  live.syncOffsetMs = await syncOffsetMs();
   await ensureOffscreen();
 
   chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.5 });
@@ -89,6 +90,20 @@ function onOffscreenEvent(event) {
   }
 }
 
+async function handlePopupQuery(message) {
+  if (message.cmd === 'setOffset') {
+    live.syncOffsetMs = await setSyncOffsetMs(message.args?.ms ?? 0);
+    await toContent({ type: 'status', status: live });
+    return { ok: true, syncOffsetMs: live.syncOffsetMs };
+  }
+
+  const res = await askOffscreen(message.cmd, message.args);
+  if (message.cmd === 'status' && res && !res.error) {
+    return { ...res, syncOffsetMs: live.syncOffsetMs };
+  }
+  return res;
+}
+
 function onPeerMessage(msg) {
   if (!msg) return;
   if (msg.t === T.URL) {
@@ -100,10 +115,14 @@ function onPeerMessage(msg) {
 
 installUrlSync({ live, sendToPeer });
 
+syncOffsetMs().then((ms) => {
+  live.syncOffsetMs = ms;
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message?.channel) {
     case CH.POPUP_QUERY:
-      askOffscreen(message.cmd, message.args)
+      handlePopupQuery(message)
         .then(sendResponse)
         .catch((err) => sendResponse({ error: String(err?.message ?? err) }));
       return true;

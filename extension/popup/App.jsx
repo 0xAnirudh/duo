@@ -52,7 +52,7 @@ function CodeInput({ onSubmit, busy }) {
 }
 
 export default function App() {
-  const { status, error, busy, host, join, takeControl, leave } = useConnection();
+  const { status, error, busy, host, join, takeControl, leave, setOffset } = useConnection();
   const [mode, setMode] = useState(null);
 
   const paired = status?.paired;
@@ -117,6 +117,27 @@ export default function App() {
               </span>
             </div>
           )}
+          <div className="dc-row dc-row-tight">
+            <span className="dc-label">Offset</span>
+            <span className="dc-offset">
+              <button
+                className="dc-step"
+                onClick={() => setOffset((status.syncOffsetMs ?? 0) - 25)}
+                disabled={busy}
+              >
+                &minus;
+              </button>
+              <span className="dc-value dc-mono">{status.syncOffsetMs ?? 0} ms</span>
+              <button
+                className="dc-step"
+                onClick={() => setOffset((status.syncOffsetMs ?? 0) + 25)}
+                disabled={busy}
+              >
+                +
+              </button>
+            </span>
+          </div>
+
           {!status.amController && (
             <button className="dc-btn dc-btn-primary" onClick={takeControl} disabled={busy}>
               Take control

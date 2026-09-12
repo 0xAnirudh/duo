@@ -30,13 +30,10 @@ test('projection removes the offset a slow relay leaves on PLAY', () => {
   }
 });
 
-test('the uncompensated offset hides under the dead zone', () => {
-  const latencyMs = 90;
-  assert.ok(
-    latencyMs / 1000 < DEAD_ZONE_S,
-    'a 90ms relay leaves an offset drift correction will never fix',
-  );
-  assert.ok(latencyMs / 1000 > 5 * FRAME_S, 'yet it is over five frames at 60Hz');
+test('an uncompensated offset under the dead zone is permanent', () => {
+  const latencyMs = (DEAD_ZONE_S * 1000) / 2;
+  assert.ok(latencyMs / 1000 < DEAD_ZONE_S);
+  assert.ok(latencyMs / 1000 > FRAME_S, 'and it is still more than a frame at 60Hz');
 });
 
 test('a paused controller is never projected forward', () => {

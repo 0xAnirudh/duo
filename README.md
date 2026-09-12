@@ -22,8 +22,8 @@ of each other look identical to someone watching both, so that's the target.
 | Throughput at that load | 19,200 msg/s, 11,866 rooms, 0 failures |
 | Pairing handshake, 25 rooms | p50 7ms |
 | Clock agreement | under 1ms, with an 8s wall clock skew absorbed |
-| Drift, 30 min at 0.2% decode error | worst gap 0.156s, no hard seeks |
-| Drift, 30 min at 1% decode error | worst gap 0.180s, no hard seeks |
+| Drift, 30 min at 0.2% decode error | worst gap 0.086s, no hard seeks |
+| Drift, 30 min at 1% decode error | worst gap 0.110s, no hard seeks |
 | Content script bundle | 1.5 KB gzipped |
 
 Relay numbers come from `k6 run server/bench/k6-relay.js` against localhost, so
@@ -88,9 +88,28 @@ sample out of seven rather than the average, since a sample delayed by a queued
 packet is skewed on one leg only. Once the DataChannel opens the handshake runs
 again peer to peer, with one side as the reference.
 
-**Drift.** Ignore under 0.15s, adjust `playbackRate` by 3% between 0.15s and
+**Latency compensation.** A command is stale by the time it lands: the
+controller kept playing while it was in flight. Every applied position is
+projected forward by the measured transit, `mediaTime + (now - ts) * rate`,
+using the synced clocks rather than an averaged latency figure. This applies to
+play and seek as well as heartbeats. Without it a relay leaves a fixed offset
+equal to its one-way latency, and any offset smaller than the dead zone is
+permanent, because drift correction is built to ignore exactly that range.
+
+**Drift.** Ignore under 0.08s, adjust `playbackRate` by 3% between 0.08s and
 0.5s, hard seek past that. A 3% shift isn't audible and closes the gap without
 a visible jump.
+
+The dead zone is 0.08s because that is the knee of the curve. Sweeping it
+against a simulated player with frame-grained `currentTime` noise: 0.15s leaves
+a 0.090s mean error, 0.08s cuts that to 0.035s for the same number of
+corrections, and anything below 0.05s multiplies corrections fifteenfold
+chasing measurement noise for no further gain.
+
+**Manual offset.** Displays and audio paths add their own lag, which no amount
+of clock sync can see. The popup has a +/- 25ms stepper that shifts this
+device's applied position, so a pair that measures in sync but looks off can be
+dialled in by eye.
 
 **Control.** The server owns `controllerId` even when the DataChannel is
 carrying everything else. It changes once a session so latency doesn't matter,

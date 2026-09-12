@@ -141,3 +141,24 @@ body {
 
 .dc-row-tight { margin: 0 0 12px; }
 .dc-mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.dc-offset {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-step {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--fg);
+  border-radius: 5px;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.dc-step:hover:not(:disabled) { border-color: var(--accent); }
+.dc-step:disabled { opacity: 0.4; cursor: default; }

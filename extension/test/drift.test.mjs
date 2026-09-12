@@ -26,9 +26,10 @@ test('transit is scaled by playback rate', () => {
 });
 
 test('drift under the dead zone is ignored', () => {
-  assert.equal(decide(0.1, 1).action, 'hold');
-  assert.equal(decide(-0.1, 1).action, 'hold');
+  assert.equal(decide(DEAD_ZONE_S / 2, 1).action, 'hold');
+  assert.equal(decide(-DEAD_ZONE_S / 2, 1).action, 'hold');
   assert.equal(decide(DEAD_ZONE_S - 0.001, 1).action, 'hold');
+  assert.equal(decide(DEAD_ZONE_S + 0.001, 1).action, 'nudge');
 });
 
 test('middling drift nudges the rate in the right direction', () => {

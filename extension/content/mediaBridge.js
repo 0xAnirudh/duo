@@ -5,8 +5,14 @@ import { expectedTime, decide, createRateController } from './drift.js';
 
 const suppress = createSuppressor({ windowMs: TUNING.SUPPRESS_MS });
 
-const live = { paired: false, amController: false, clockOffset: 0 };
+const live = { paired: false, amController: false, clockOffset: 0, syncOffsetMs: 0 };
 const serverNow = () => Date.now() + live.clockOffset;
+
+function targetFor(msg) {
+  const shifted = expectedTime(msg, serverNow()) + (live.syncOffsetMs || 0) / 1000;
+  const limit = Number.isFinite(video?.duration) ? video.duration : Infinity;
+  return Math.max(0, Math.min(shifted, limit));
+}
 
 let video = null;
 let detachListeners = null;
@@ -83,7 +89,7 @@ function applyInbound(msg) {
 
   switch (msg.t) {
     case T.PLAY: {
-      const target = expectedTime(msg, serverNow());
+      const target = targetFor(msg);
       if (!video.paused && Math.abs(video.currentTime - target) < 0.05) return;
       suppress.apply(() => {
         if (Math.abs(video.currentTime - target) > 0.05) {
@@ -94,16 +100,18 @@ function applyInbound(msg) {
       break;
     }
 
-    case T.PAUSE:
-      if (video.paused) return;
+    case T.PAUSE: {
+      const target = targetFor(msg);
+      if (video.paused && Math.abs(video.currentTime - target) < 0.05) return;
       suppress.apply(() => {
         video.pause();
-        video.currentTime = msg.mediaTime;
+        video.currentTime = target;
       });
       break;
+    }
 
     case T.SEEK: {
-      const target = expectedTime(msg, serverNow());
+      const target = targetFor(msg);
       if (Math.abs(video.currentTime - target) < 0.05) return;
       suppress.apply(() => {
         video.currentTime = target;
@@ -140,7 +148,7 @@ function onHeartbeat(msg) {
     suppress.apply(() => video.play().catch(() => {}));
   }
 
-  const expected = expectedTime(msg, serverNow());
+  const expected = targetFor(msg);
   const plan = decide(video.currentTime - expected, msg.rate);
 
   if (plan.action === 'hold') return;

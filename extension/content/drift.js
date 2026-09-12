@@ -1,4 +1,4 @@
-export const DEAD_ZONE_S = 0.15;
+export const DEAD_ZONE_S = 0.08;
 export const HARD_SEEK_S = 0.5;
 export const NUDGE = 0.03;
 
