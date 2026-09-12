@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
-import { copyFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -10,6 +10,12 @@ function copyManifest() {
     name: 'copy-manifest',
     writeBundle() {
       copyFileSync(here('manifest.json'), here('dist/manifest.json'));
+      mkdirSync(here('dist/icons'), { recursive: true });
+      for (const file of readdirSync(here('icons'))) {
+        if (file.endsWith('.png')) {
+          copyFileSync(here(`icons/${file}`), here(`dist/icons/${file}`));
+        }
+      }
     },
   };
 }
