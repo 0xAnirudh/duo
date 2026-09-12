@@ -34,6 +34,7 @@ export const CH = {
   POPUP_QUERY: 'dc:popup-query',
   POPUP_EVENT: 'dc:popup-event',
   KEEPALIVE: 'dc:keepalive',
+  OFFSCREEN_QUERY: 'dc:offscreen-query',
 };
 
 export const TUNING = {

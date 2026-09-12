@@ -1,5 +1,6 @@
 import { ensureOffscreen } from './offscreenManager.js';
 import { CH, T } from '../shared/protocol.js';
+import { serverUrl } from '../shared/config.js';
 import {
   install as installUrlSync,
   applyRemoteUrl,
@@ -31,6 +32,22 @@ async function askOffscreen(cmd, args) {
   await ensureOffscreen();
   return chrome.runtime.sendMessage({ channel: CH.TO_OFFSCREEN, cmd, args });
 }
+
+const OFFSCREEN_QUERIES = {
+  getServerUrl: () => serverUrl(),
+  getSession: async () => {
+    const { dcSession } = await chrome.storage.session.get('dcSession');
+    return dcSession ?? null;
+  },
+  setSession: async ({ session }) => {
+    await chrome.storage.session.set({ dcSession: session });
+    return { ok: true };
+  },
+  clearSession: async () => {
+    await chrome.storage.session.remove('dcSession');
+    return { ok: true };
+  },
+};
 
 export function sendToPeer(msg) {
   return askOffscreen('send', { msg }).catch(() => null);
@@ -90,6 +107,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         .then(sendResponse)
         .catch((err) => sendResponse({ error: String(err?.message ?? err) }));
       return true;
+
+    case CH.OFFSCREEN_QUERY: {
+      const fn = OFFSCREEN_QUERIES[message.cmd];
+      if (!fn) {
+        sendResponse({ error: `unknown query: ${message.cmd}` });
+        return false;
+      }
+      Promise.resolve(fn(message.args ?? {}))
+        .then((value) => sendResponse({ value }))
+        .catch((err) => sendResponse({ error: String(err?.message ?? err) }));
+      return true;
+    }
 
     case CH.KEEPALIVE:
 

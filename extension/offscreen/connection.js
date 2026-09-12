@@ -1,6 +1,5 @@
 import { io } from 'socket.io-client';
-import { T, UNRELIABLE } from '../shared/protocol.js';
-import { serverUrl } from '../shared/config.js';
+import { CH, T, UNRELIABLE } from '../shared/protocol.js';
 import { createDirectLink } from './webrtc.js';
 import {
   syncClock,
@@ -18,6 +17,16 @@ import {
 
 let socket = null;
 let session = null;
+
+async function ask(cmd, args) {
+  const res = await chrome.runtime.sendMessage({
+    channel: CH.OFFSCREEN_QUERY,
+    cmd,
+    args,
+  });
+  if (res?.error) throw new Error(res.error);
+  return res?.value ?? null;
+}
 
 let direct = null;
 const pendingClock = new Map();
@@ -58,7 +67,7 @@ function absorb(room) {
     controllerId: room.controllerId,
   };
 
-  chrome.storage.session.set({ dcSession: session });
+  ask('setSession', { session }).catch(() => {});
   announce('status');
   startClock();
 }
@@ -80,7 +89,7 @@ async function startClock() {
 export async function connect() {
   if (socket) return socket;
 
-  socket = io(await serverUrl(), {
+  socket = io(await ask('getServerUrl'), {
     transports: ['websocket'],
     upgrade: false,
     reconnectionDelay: 400,
@@ -97,7 +106,7 @@ export async function connect() {
         absorb(res.room);
       } else {
         session = null;
-        chrome.storage.session.remove('dcSession');
+        ask('clearSession').catch(() => {});
         announce('lost', { reason: res?.error ?? 'rejoin_failed' });
       }
     }
@@ -273,8 +282,8 @@ export function takeControl() {
 }
 
 export async function restore() {
-  const { dcSession } = await chrome.storage.session.get('dcSession');
-  if (dcSession) session = dcSession;
+  const saved = await ask('getSession').catch(() => null);
+  if (saved) session = saved;
   await connect();
 }
 
@@ -284,7 +293,7 @@ export function leave() {
   probeTimer = null;
   resetClock();
   session = null;
-  chrome.storage.session.remove('dcSession');
+  ask('clearSession').catch(() => {});
   socket?.disconnect();
   socket = null;
   announce('status');
