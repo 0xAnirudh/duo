@@ -1,6 +1,12 @@
 import { ensureOffscreen } from './offscreenManager.js';
 import { CH, T } from '../shared/protocol.js';
-import { serverUrl, syncOffsetMs, setSyncOffsetMs } from '../shared/config.js';
+import {
+  serverUrl,
+  syncOffsetMs,
+  setSyncOffsetMs,
+  deviceName,
+  setDeviceName,
+} from '../shared/config.js';
 import {
   install as installUrlSync,
   applyRemoteUrl,
@@ -36,6 +42,7 @@ async function askOffscreen(cmd, args) {
 
 const OFFSCREEN_QUERIES = {
   getServerUrl: () => serverUrl(),
+  getDeviceName: () => deviceName(),
   getSession: async () => {
     const { dcSession } = await chrome.storage.session.get('dcSession');
     return dcSession ?? null;
@@ -91,6 +98,12 @@ function onOffscreenEvent(event) {
 }
 
 async function handlePopupQuery(message) {
+  if (message.cmd === 'setName') {
+    const name = await setDeviceName(message.args?.name ?? '');
+    await askOffscreen('sendName', {}).catch(() => {});
+    return { ok: true, deviceName: name };
+  }
+
   if (message.cmd === 'setOffset') {
     live.syncOffsetMs = await setSyncOffsetMs(message.args?.ms ?? 0);
     await toContent({ type: 'status', status: live });
@@ -99,7 +112,7 @@ async function handlePopupQuery(message) {
 
   const res = await askOffscreen(message.cmd, message.args);
   if (message.cmd === 'status' && res && !res.error) {
-    return { ...res, syncOffsetMs: live.syncOffsetMs };
+    return { ...res, syncOffsetMs: live.syncOffsetMs, deviceName: await deviceName() };
   }
   return res;
 }

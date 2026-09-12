@@ -13,9 +13,11 @@ export const T = {
   SEEK: 'SEEK',
   RATE: 'RATE',
   HEARTBEAT: 'HEARTBEAT',
+  NAME: 'NAME',
 };
 
 export const RELAYED = new Set([
+  T.NAME,
   T.URL,
   T.PLAY,
   T.PAUSE,

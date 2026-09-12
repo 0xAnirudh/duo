@@ -48,6 +48,7 @@ export function status() {
     code: session?.code ?? null,
     roomId: session?.roomId ?? null,
     you: session?.you ?? null,
+    peerName: session?.peerName ?? null,
     controllerId: session?.controllerId ?? null,
     amController: Boolean(session && session.controllerId === session.you),
     path: direct?.isOpen() ? 'direct' : 'relay',
@@ -70,6 +71,10 @@ function absorb(room) {
   ask('setSession', { session }).catch(() => {});
   announce('status');
   startClock();
+  if (session.peerId) {
+    openDirect();
+    sendName();
+  }
 }
 
 let probeTimer = null;
@@ -123,6 +128,7 @@ export async function connect() {
     announce('status');
     announce('peer', { present: true });
     openDirect();
+    sendName();
   });
 
   socket.on(T.PEER_LEAVE, () => {
@@ -146,7 +152,7 @@ export async function connect() {
     announce('status');
   });
 
-  socket.on('relay', (msg) => announce('peer-message', { msg }));
+  socket.on('relay', (msg) => onPeerMessage(msg));
 
   if (session?.peerId) openDirect();
 
@@ -154,6 +160,12 @@ export async function connect() {
 }
 
 let directWasOpen = false;
+
+export async function sendName() {
+  const name = await ask('getDeviceName').catch(() => '');
+  if (!session?.peerId) return;
+  send({ t: T.NAME, name: name || '' });
+}
 
 function openDirect() {
   if (direct || !session?.peerId || !session?.you) return;
@@ -195,6 +207,15 @@ function onDirectStatus({ open }) {
   announce('status');
 }
 
+function onPeerMessage(msg) {
+  if (msg?.t === T.NAME) {
+    if (session) session.peerName = msg.name || null;
+    announce('status');
+    return;
+  }
+  announce('peer-message', { msg });
+}
+
 function onDirectMessage(msg) {
   if (msg.t === 'CLK_REQ') {
     const t1 = Date.now();
@@ -207,7 +228,7 @@ function onDirectMessage(msg) {
     resolve?.(msg);
     return;
   }
-  announce('peer-message', { msg });
+  onPeerMessage(msg);
 }
 
 let clockSeq = 0;

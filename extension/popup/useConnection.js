@@ -52,6 +52,7 @@ export function useConnection() {
     join: (code) => run('join', { code }),
     takeControl: () => run('takeControl'),
     setOffset: (ms) => run('setOffset', { ms }),
+    setName: (name) => run('setName', { name }),
     leave: () => run('leave'),
   };
 }

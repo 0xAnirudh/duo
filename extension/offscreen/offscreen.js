@@ -14,6 +14,7 @@ const COMMANDS = {
     return { ok: true };
   },
   send: ({ msg }) => ({ path: conn.send(msg) }),
+  sendName: () => conn.sendName(),
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

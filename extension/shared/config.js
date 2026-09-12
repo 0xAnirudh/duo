@@ -21,3 +21,16 @@ export async function setSyncOffsetMs(ms) {
   await chrome.storage.local.set({ syncOffsetMs: clamped });
   return clamped;
 }
+
+export const MAX_NAME_LEN = 24;
+
+export async function deviceName() {
+  const { deviceName } = await chrome.storage.local.get('deviceName');
+  return deviceName || '';
+}
+
+export async function setDeviceName(name) {
+  const clean = String(name ?? '').trim().slice(0, MAX_NAME_LEN);
+  await chrome.storage.local.set({ deviceName: clean });
+  return clean;
+}
