@@ -34,6 +34,15 @@ function outbound(msg) {
   post({ ...msg, ts: serverNow() });
 }
 
+function stateOf(element, t) {
+  return {
+    t,
+    mediaTime: element.currentTime,
+    rate: element.playbackRate,
+    paused: element.paused,
+  };
+}
+
 let seekTimer = null;
 
 function attach(element) {
@@ -48,22 +57,22 @@ function attach(element) {
     off.push(() => element.removeEventListener(type, handler));
   };
 
-  on('play', () => outbound({ t: T.PLAY, mediaTime: element.currentTime }));
-  on('pause', () => outbound({ t: T.PAUSE, mediaTime: element.currentTime }));
+  on('play', () => outbound(stateOf(element, T.PLAY)));
+  on('pause', () => outbound(stateOf(element, T.PAUSE)));
   on('ratechange', () => outbound({ t: T.RATE, rate: element.playbackRate }));
 
   on('seeking', () => {
     if (seekTimer) return;
     seekTimer = setTimeout(() => {
       seekTimer = null;
-      outbound({ t: T.SEEK, mediaTime: element.currentTime });
+      outbound(stateOf(element, T.SEEK));
     }, TUNING.SEEK_THROTTLE_MS);
   });
 
   on('seeked', () => {
     clearTimeout(seekTimer);
     seekTimer = null;
-    outbound({ t: T.SEEK, mediaTime: element.currentTime });
+    outbound(stateOf(element, T.SEEK));
   });
 
   detachListeners = () => off.forEach((fn) => fn());
@@ -73,16 +82,17 @@ function applyInbound(msg) {
   if (!video) return;
 
   switch (msg.t) {
-    case T.PLAY:
-
-      if (!video.paused && Math.abs(video.currentTime - msg.mediaTime) < 0.25) return;
+    case T.PLAY: {
+      const target = expectedTime(msg, serverNow());
+      if (!video.paused && Math.abs(video.currentTime - target) < 0.05) return;
       suppress.apply(() => {
-        if (Math.abs(video.currentTime - msg.mediaTime) > 0.25) {
-          video.currentTime = msg.mediaTime;
+        if (Math.abs(video.currentTime - target) > 0.05) {
+          video.currentTime = target;
         }
         video.play().catch((err) => post({ t: 'BLOCKED', reason: String(err?.name ?? err) }));
       });
       break;
+    }
 
     case T.PAUSE:
       if (video.paused) return;
@@ -92,12 +102,14 @@ function applyInbound(msg) {
       });
       break;
 
-    case T.SEEK:
-      if (Math.abs(video.currentTime - msg.mediaTime) < 0.05) return;
+    case T.SEEK: {
+      const target = expectedTime(msg, serverNow());
+      if (Math.abs(video.currentTime - target) < 0.05) return;
       suppress.apply(() => {
-        video.currentTime = msg.mediaTime;
+        video.currentTime = target;
       });
       break;
+    }
 
     case T.RATE:
 
