@@ -17,8 +17,9 @@ of each other look identical to someone watching both, so that's the target.
 
 | What | Result |
 |---|---|
-| Relay forwarding, idle | one-way p50 0.17ms, p95 0.31ms |
+| Command latency, localhost | p50 0.17ms, p95 0.31ms |
 | Relay, 150 concurrent rooms | round trip p50 4ms, p95 9ms |
+| Command latency, deployed relay in Singapore | p50 104ms, p95 108ms |
 | Throughput at that load | 19,200 msg/s, 11,866 rooms, 0 failures |
 | Pairing handshake, 25 rooms | p50 7ms |
 | Clock agreement | under 1ms, with an 8s wall clock skew absorbed |
@@ -30,10 +31,20 @@ Relay numbers come from `k6 run server/bench/k6-relay.js` against localhost, so
 they measure the server's forwarding cost rather than the network. Drift
 numbers come from a simulated player in `npm test`.
 
-Measured against the deployed relay on Render's free tier, from India: one-way
-p50 272ms, p95 376ms. That number is almost entirely distance, not the server
--- the same code forwards in 0.17ms on localhost. It is the argument for the
-direct path, and for picking a region near the people using it.
+Command latency is the time from pressing pause on one device to the other
+receiving it: one traversal of client, server, client. The k6 round trip is two
+of those, since the peer bounces the message back.
+
+Region is the whole wide-area number. The same deployment, measured from India,
+on Render's US default versus Singapore:
+
+| Region | Command latency |
+|---|---|
+| Oregon, US | p50 272ms |
+| Singapore | p50 104ms |
+
+One line of `render.yaml`. Nothing about the code changed, and the same code
+forwards in 0.17ms on localhost, so effectively all of it is distance.
 
 Not measured yet: DataChannel latency on a real LAN, which needs two machines.
 
