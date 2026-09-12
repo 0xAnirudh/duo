@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useConnection } from './useConnection.js';
+import Icon from './Icon.jsx';
 
 const MESSAGES = {
   bad_code: 'No room with that code. Codes last five minutes.',
@@ -21,7 +22,7 @@ function Chip({ status, open, onToggle }) {
     >
       {direct ? 'DIRECT' : 'RELAY'}
       {rtt ? ` · ${rtt.p50}ms` : ' · –'}
-      <span className="dc-chip-caret">▼</span>
+      <Icon name="chevron" size={12} className="dc-chip-caret" />
     </button>
   );
 }
@@ -46,6 +47,7 @@ function CodeInput({ onSubmit, busy }) {
         autoFocus
       />
       <button className="dc-btn dc-btn-primary" disabled={clean.length !== 6 || busy}>
+        <Icon name="join" />
         Join
       </button>
     </form>
@@ -85,6 +87,7 @@ function Guide({ onClose }) {
       </ol>
       <div className="dc-foot" style={{ marginTop: 12 }}>
         <button className="dc-ghost dc-spacer" onClick={onClose}>
+          <Icon name="close" size={14} />
           Close
         </button>
       </div>
@@ -141,9 +144,11 @@ export default function App() {
         <div className="glass dc-body dc-fade">
           <div className="dc-actions">
             <button className="dc-btn dc-btn-primary" onClick={host} disabled={busy}>
+              <Icon name="host" />
               Host a session
             </button>
             <button className="dc-btn" onClick={() => setMode('join')}>
+              <Icon name="join" />
               Enter a code
             </button>
           </div>
@@ -154,7 +159,8 @@ export default function App() {
         <div className="glass dc-body dc-fade">
           <p className="dc-hint">Type the six digits from the other device.</p>
           <CodeInput onSubmit={join} busy={busy} />
-          <button className="dc-link" onClick={() => setMode(null)}>
+          <button className="dc-ghost" onClick={() => setMode(null)}>
+            <Icon name="back" size={14} />
             Back
           </button>
         </div>
@@ -190,6 +196,7 @@ export default function App() {
 
           {!status.amController && (
             <button className="dc-btn dc-btn-primary" onClick={takeControl} disabled={busy}>
+              <Icon name="control" />
               Take control
             </button>
           )}
@@ -205,10 +212,12 @@ export default function App() {
       {!guide && (
         <div className="dc-foot">
           <button className="dc-ghost" onClick={() => setGuide(true)}>
+            <Icon name="guide" size={14} />
             Guide
           </button>
           {paired && (
             <button className="dc-ghost dc-ghost-danger dc-spacer" onClick={leave}>
+              <Icon name="unpair" size={14} />
               Unpair
             </button>
           )}
