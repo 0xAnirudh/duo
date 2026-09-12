@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
 import { register } from './handlers.js';
@@ -9,6 +10,9 @@ const PORT = Number(process.env.PORT) || 8787;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 const app = express();
+
+const publicDir = fileURLToPath(new URL('../public', import.meta.url));
+app.use(express.static(publicDir, { extensions: ['html'] }));
 const httpServer = createServer(app);
 
 app.get('/health', (_req, res) => {

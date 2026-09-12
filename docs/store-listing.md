@@ -87,4 +87,4 @@ DATA USE  (tick in dashboard)
 - Not sold, not used for ads, not used for creditworthiness.
 
 PRIVACY POLICY URL
-https://0xanirudh.github.io/duo/privacy.html
+https://dualcontrol.onrender.com/privacy

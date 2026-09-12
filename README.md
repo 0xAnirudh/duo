@@ -230,7 +230,7 @@ go out volatile; on the DataChannel they use a second channel opened with
 
 ## Privacy
 
-Full policy: [docs/privacy.md](docs/privacy.md).
+Full policy: [dualcontrol.onrender.com/privacy](https://dualcontrol.onrender.com/privacy).
 
 Short version: no accounts, no tracking, no analytics, nothing sold. Your
 device name and offset stay on your machine. **On the relay path the server can
