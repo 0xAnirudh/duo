@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DualControl — two browsers, one playhead</title>
+<meta name="description" content="Pair two browsers with a six-digit code and keep the page and video playback in sync on both. Free, open source, no account.">
+<meta property="og:title" content="DualControl">
+<meta property="og:description" content="Two browsers, one playhead. Pair with a six-digit code.">
+<link rel="icon" href="/icon128.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#f5f2f7; --ink-2:#c8bfcb; --ink-3:#b0a5b4;
+  --rim:rgba(255,255,255,.2); --rim-hi:rgba(255,255,255,.34);
+  --panel:rgba(22,19,31,.34); --well:rgba(0,0,0,.28);
+  --good:#46e0a8;
+  --r:18px;
+  --sans:"Schibsted Grotesk",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:#15121c;color:var(--ink);
+  font:400 17px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
+  overflow-x:hidden;position:relative;
+}
+body::before{
+  content:"";position:fixed;inset:-12%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(34% 26% at 96% 0%,rgba(24,150,236,.95),transparent 64%),
+    radial-gradient(22% 16% at 78% 12%,rgba(236,246,253,.82),transparent 60%),
+    radial-gradient(24% 18% at 90% 26%,rgba(255,168,32,.6),transparent 60%),
+    radial-gradient(26% 20% at 40% 60%,rgba(240,52,96,.42),transparent 66%),
+    radial-gradient(34% 28% at 4% 92%,rgba(126,48,206,.95),transparent 68%),
+    radial-gradient(26% 22% at 22% 34%,rgba(176,54,168,.55),transparent 66%),
+    linear-gradient(24deg,#5f27b8 0%,#a92a9a 22%,#e83d5c 42%,#ff8f2a 60%,#dfeaf6 76%,#1a8ae0 100%);
+  filter:blur(24px);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(10,8,17,.55) 0%,rgba(10,8,17,.7) 40%,rgba(10,8,17,.84) 100%);
+}
+.shell{position:relative;z-index:2}
+.wrap{width:min(1180px,100% - 48px);margin-inline:auto}
+
+::selection{background:rgba(120,162,255,.34);color:#fff}
+:focus-visible{outline:2px solid var(--good);outline-offset:3px;border-radius:8px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:rgba(0,0,0,.3)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.17);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3);background-clip:content-box}
+
+.glass{
+  background:var(--panel);
+  backdrop-filter:blur(46px) saturate(150%) brightness(1.02);
+  -webkit-backdrop-filter:blur(46px) saturate(150%) brightness(1.02);
+  border:1px solid var(--rim);border-radius:var(--r);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.14),0 20px 54px rgba(0,0,0,.4);
+}
+
+/* ---------- nav ---------- */
+.nav{display:flex;align-items:center;gap:14px;padding:22px 0 0;position:relative}
+.nav::before{content:"";position:absolute;inset:-26px -40px -18px;pointer-events:none;
+  background:radial-gradient(60% 150% at 50% 40%,rgba(8,6,14,.5),transparent 72%)}
+.nav>*{position:relative}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.015em;font-size:17px}
+.brand img{width:29px;height:29px;border-radius:8px;display:block}
+.nav-links{margin-left:auto;display:flex;align-items:center;gap:6px}
+.nav-links a{
+  color:var(--ink-2);text-decoration:none;font-size:14.5px;font-weight:500;
+  padding:8px 13px;border-radius:10px;transition:color .18s,background .18s;
+}
+.nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+
+/* ---------- hero ---------- */
+.hero{padding:58px 0 0}
+.hero h1{
+  margin:0;font-size:clamp(42px,6.6vw,86px);line-height:.96;font-weight:800;
+  letter-spacing:-.038em;text-wrap:balance;max-width:16ch;
+}
+.hero h1 em{font-style:normal;color:var(--ink-2)}
+.lede{margin:20px 0 0;font-size:clamp(17px,1.55vw,20px);color:var(--ink-2);max-width:52ch;line-height:1.55}
+.lede b{color:var(--ink);font-weight:600}
+
+.actions{display:flex;flex-wrap:wrap;gap:11px;margin:28px 0 0;align-items:center}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;text-decoration:none;
+  font:600 15px/1 var(--sans);padding:14px 20px;border-radius:13px;
+  border:1px solid var(--rim);color:var(--ink);background:rgba(255,255,255,.09);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
+  transition:transform .16s cubic-bezier(.32,.72,0,1),background .18s,border-color .18s;
+}
+.btn:hover{background:rgba(255,255,255,.15);border-color:var(--rim-hi)}
+.btn:active{transform:scale(.976)}
+.btn-primary{
+  background:linear-gradient(180deg,#fff,#e9ebf3);color:#17102a;border-color:rgba(255,255,255,.7);
+  box-shadow:inset 0 1px 0 #fff,0 10px 26px rgba(0,0,0,.34);
+}
+.btn-primary:hover{background:linear-gradient(180deg,#fff,#dfe2ed)}
+.meta{font:500 13.5px/1.5 var(--mono);color:var(--ink-2);letter-spacing:-.01em}
+
+/* ---------- the pair ---------- */
+.rig{margin:42px 0 0;position:relative}
+.pair{display:grid;grid-template-columns:1fr 92px 1fr;align-items:center;gap:0}
+.pane{padding:13px;border-radius:20px;position:relative;z-index:1}
+.chrome{display:flex;align-items:center;gap:7px;padding:0 3px 11px}
+.dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.2)}
+.tag{
+  margin-left:6px;font:500 11.5px/1 var(--mono);color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.tag b{color:var(--good);font-weight:600}
+.screen{
+  position:relative;aspect-ratio:16/10;border-radius:12px;overflow:hidden;
+  background:#0d0b14;border:1px solid rgba(255,255,255,.08);
+}
+.film{position:absolute;inset:0;transition:filter .4s}
+.film i{position:absolute;border-radius:50%;filter:blur(34px);display:block}
+.f1{width:78%;height:96%;left:-16%;top:-22%;background:rgba(232,61,92,.8)}
+.f2{width:66%;height:84%;right:-14%;top:-4%;background:rgba(255,143,42,.72)}
+.f3{width:84%;height:76%;left:8%;bottom:-30%;background:rgba(95,39,184,.85)}
+.f4{width:52%;height:58%;right:4%;bottom:-14%;background:rgba(26,138,224,.7)}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 50%,transparent 42%,rgba(0,0,0,.5) 100%)}
+.scan{
+  position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.92);
+  box-shadow:0 0 16px 2px rgba(255,255,255,.6);
+}
+.stamp{
+  position:absolute;left:12px;bottom:10px;font:600 12px/1 var(--mono);
+  color:rgba(255,255,255,.94);text-shadow:0 1px 6px rgba(0,0,0,.6);letter-spacing:-.02em;
+}
+.bar{margin:12px 3px 2px;height:22px;position:relative;cursor:grab;touch-action:none}
+.bar:active{cursor:grabbing}
+.bar::before{
+  content:"";position:absolute;left:0;right:0;top:9px;height:4px;border-radius:99px;
+  background:rgba(255,255,255,.14);
+}
+.fill{position:absolute;left:0;top:9px;height:4px;border-radius:99px;background:rgba(255,255,255,.82)}
+.knob{
+  position:absolute;top:2px;width:18px;height:18px;margin-left:-9px;border-radius:50%;
+  background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:transform .16s;
+}
+.bar:hover .knob{transform:scale(1.14)}
+.pane.is-follower .knob{background:rgba(255,255,255,.66)}
+.pane{transition:opacity .3s}
+.film{transition:filter .45s cubic-bezier(.32,.72,0,1)}
+
+.link{position:relative;height:120px;display:grid;place-items:center;z-index:5}
+.link svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.wire{stroke:rgba(255,255,255,.2);stroke-width:1.5;fill:none;stroke-dasharray:3 5}
+.pip{fill:#fff;opacity:0}
+.badge{
+  position:relative;font:600 11.5px/1 var(--mono);color:var(--ink);
+  padding:8px 12px;border-radius:99px;border:1px solid var(--rim-hi);
+  background:rgba(16,14,24,.88);white-space:nowrap;letter-spacing:-.02em;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 6px 18px rgba(0,0,0,.45);
+}
+.badge b{color:var(--good);font-weight:600}
+
+/* ---------- sections ---------- */
+section{padding:112px 0 0}
+h2{
+  margin:0;font-size:clamp(28px,3.4vw,42px);line-height:1.08;font-weight:700;
+  letter-spacing:-.03em;text-wrap:balance;
+}
+.sub{margin:15px 0 0;color:var(--ink-2);max-width:58ch;font-size:17px}
+
+.flow{display:grid;grid-template-columns:1fr 1.32fr 1fr;margin:44px 0 0;overflow:hidden}
+.fstep{padding:30px 28px 32px;display:flex;flex-direction:column;gap:11px}
+.fstep+.fstep{border-left:1px solid rgba(255,255,255,.09)}
+.fstep h3{margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em}
+.fstep p{margin:0;color:var(--ink-2);font-size:15.5px;line-height:1.55}
+.fstep .ico{color:var(--ink);opacity:.92}
+.is-code{align-items:stretch;text-align:center}
+.is-code p{text-align:left}
+.code-face{
+  margin:4px 0 2px;font:600 clamp(28px,3.4vw,42px)/1 var(--mono);letter-spacing:.18em;
+  text-indent:.18em;color:#fff;text-align:center;padding:22px 0;border-radius:13px;
+  background:var(--well);border:1px solid var(--rim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.ledger{margin:44px 0 0;overflow:hidden}
+.row{
+  display:grid;grid-template-columns:1.5fr auto 1.35fr;gap:22px;align-items:baseline;
+  padding:19px 26px;border-top:1px solid rgba(255,255,255,.07);
+}
+.row:first-child{border-top:0}
+.row dt{margin:0;font-weight:500;font-size:16px}
+.row .val{font:600 19px/1 var(--mono);color:#fff;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .how{margin:0;color:var(--ink-3);font-size:14px;line-height:1.5}
+.note{margin:20px 2px 0;color:var(--ink-3);font-size:14.5px;max-width:64ch}
+
+.get{margin:44px 0 0;padding:40px;display:grid;grid-template-columns:1.1fr 1fr;gap:38px;align-items:center}
+.get h3{margin:0 0 10px;font-size:24px;font-weight:700;letter-spacing:-.025em}
+.get p{margin:0;color:var(--ink-2);font-size:16px}
+.install{display:flex;flex-direction:column;gap:0}
+.ins{display:flex;gap:14px;padding:11px 0;align-items:baseline}
+.ins span:first-child{
+  font:600 12px/1.7 var(--mono);color:var(--ink-3);min-width:20px;
+  font-variant-numeric:tabular-nums;
+}
+.ins span:last-child{color:var(--ink-2);font-size:15.5px;line-height:1.55}
+.ins code{
+  font:500 13.5px/1 var(--mono);background:var(--well);padding:3px 7px;
+  border-radius:6px;color:var(--ink);border:1px solid rgba(255,255,255,.09);
+}
+
+.contact{display:flex;flex-wrap:wrap;gap:11px;margin:20px 0 0}
+
+footer{
+  margin:104px 0 0;padding:28px 0 40px;
+  border-top:1px solid rgba(255,255,255,.08);
+  display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  color:var(--ink-3);font-size:14px;
+}
+footer a{color:var(--ink-3);text-decoration:none;transition:color .18s}
+footer a:hover{color:var(--ink)}
+footer .sep{margin-left:auto;display:flex;gap:18px}
+
+@media (max-width:920px){
+  .pair{grid-template-columns:1fr;gap:0}
+  .link{height:56px}
+  .link svg{display:none}
+  .flow{grid-template-columns:1fr}
+  .fstep+.fstep{border-left:0;border-top:1px solid rgba(255,255,255,.09)}
+  .nav-links a:not(.keep){display:none}
+  .get{grid-template-columns:1fr;gap:28px;padding:30px}
+  .row{grid-template-columns:1fr auto;gap:8px 18px;padding:16px 20px}
+  .row .how{grid-column:1/-1;margin-top:2px}
+  section{padding:84px 0 0}
+  .hero{padding:52px 0 0}
+  footer .sep{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="wrap">
+
+<nav class="nav">
+  <div class="brand"><img src="/icon128.png" alt="">DualControl</div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#measured">Measured</a>
+    <a class="keep" href="https://github.com/0xAnirudh/duo">Source</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>Two browsers.<br><em>One playhead.</em></h1>
+  <p class="lede">Pair them with a six-digit code. Pause here, it pauses there — <b>within one frame on a local network</b>. Works on any site with a video, because it drives the browser's own player rather than anyone's API.</p>
+  <div class="actions">
+    <a class="btn btn-primary" href="https://github.com/0xAnirudh/duo/releases/download/v1.0.0/dualcontrol-1.0.0.zip" download>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 19.5h14"/></svg>
+      Download for Chrome
+    </a>
+    <a class="btn" href="https://github.com/0xAnirudh/duo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2A9.8 9.8 0 0 0 8.9 21.3c.49.09.67-.21.67-.47v-1.67c-2.73.6-3.3-1.31-3.3-1.31-.45-1.14-1.09-1.44-1.09-1.44-.89-.61.07-.6.07-.6.98.07 1.5 1.01 1.5 1.01.88 1.5 2.3 1.07 2.86.82.09-.64.34-1.07.62-1.32-2.18-.25-4.47-1.09-4.47-4.84 0-1.07.38-1.94 1.01-2.63-.1-.25-.44-1.25.1-2.6 0 0 .82-.26 2.7 1a9.4 9.4 0 0 1 4.92 0c1.87-1.26 2.7-1 2.7-1 .53 1.35.2 2.35.1 2.6.63.69 1 1.56 1 2.63 0 3.76-2.29 4.59-4.48 4.83.35.3.67.9.67 1.82v2.7c0 .26.18.57.68.47A9.8 9.8 0 0 0 12 2.2Z"/></svg>
+      Source
+    </a>
+    <span class="meta">Free · 87 KB · no account</span>
+  </div>
+</header>
+
+<div class="rig">
+  <div class="pair">
+    <div class="pane glass" id="paneA">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="tag" id="tagA">This device · <b>driving</b></span></div>
+      <div class="screen"><div class="film"><i class="f1"></i><i class="f2"></i><i class="f3"></i><i class="f4"></i></div><div class="scan" id="scanA"></div><div class="stamp" id="stampA">00:00</div></div>
+      <div class="bar" id="barA" role="slider" tabindex="0" aria-label="Playhead on this device" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="fill" id="fillA"></div><div class="knob" id="knobA"></div>
+      </div>
+    </div>
+
+    <div class="link">
+      <svg viewBox="0 0 92 120" preserveAspectRatio="none" aria-hidden="true">
+        <path class="wire" d="M0 60 H92"/>
+        <circle class="pip" id="pip" cx="0" cy="60" r="3.5"/>
+      </svg>
+      <span class="badge" id="badge">Relay · <b>measuring</b></span>
+    </div>
+
+    <div class="pane glass is-follower" id="paneB">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="tag" id="tagB">Their device · following</span></div>
+      <div class="screen"><div class="film"><i class="f1"></i><i class="f2"></i><i class="f3"></i><i class="f4"></i></div><div class="scan" id="scanB"></div><div class="stamp" id="stampB">00:00</div></div>
+      <div class="bar" id="barB" role="slider" tabindex="0" aria-label="Playhead on the other device" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="fill" id="fillB"></div><div class="knob" id="knobB"></div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<section id="how">
+  <h2>Pairing takes about ten seconds</h2>
+  <p class="sub">No sign-up, no room links, nothing to configure. One device makes a code, the other types it.</p>
+  <div class="flow glass">
+    <div class="fstep">
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><path d="M8.9 8.9a4.4 4.4 0 0 0 0 6.2"/><path d="M15.1 15.1a4.4 4.4 0 0 0 0-6.2"/><path d="M6.2 6.2a8.2 8.2 0 0 0 0 11.6"/><path d="M17.8 17.8a8.2 8.2 0 0 0 0-11.6"/></svg></span>
+      <h3>Open the video, hit Host</h3>
+      <p>Whatever you were already watching. The extension takes the tab you are on.</p>
+    </div>
+    <div class="fstep is-code">
+      <h3>Read out six digits</h3>
+      <div class="code-face" id="codeFace">418293</div>
+      <p>Single use, and it dies the moment the second device joins. Five-minute expiry on the one nobody claims.</p>
+    </div>
+    <div class="fstep">
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.6 9.4h11.6"/><path d="M13.3 6.5 16.2 9.4l-2.9 2.9"/><path d="M19.4 14.6H7.8"/><path d="M10.7 11.7 7.8 14.6l2.9 2.9"/></svg></span>
+      <h3>Either side can drive</h3>
+      <p>The follower's own controls stay inert until it takes over. One tap hands the wheel across.</p>
+    </div>
+  </div>
+</section>
+
+<section id="measured">
+  <h2>Numbers, not adjectives</h2>
+  <p class="sub">A 60&nbsp;Hz display refreshes every 16.7&nbsp;ms. Two screens inside one frame of each other look identical to someone watching both, so that is the target rather than zero.</p>
+  <dl class="ledger glass">
+    <div class="row"><dt>Command latency, same machine</dt><span class="val">0.17 ms</span><dd class="how">200 round trips through the relay on localhost</dd></div>
+    <div class="row"><dt>Command latency, deployed relay</dt><span class="val">104 ms</span><dd class="how">Singapore, measured from India. Almost all of it is distance</dd></div>
+    <div class="row"><dt>Relay under 150 concurrent rooms</dt><span class="val">4 ms</span><dd class="how">p50 round trip, 19,200 messages a second, zero failures</dd></div>
+    <div class="row"><dt>Drift after 30 minutes of playback</dt><span class="val">0.086 s</span><dd class="how">Simulated player at 0.2% decode error, no hard seeks</dd></div>
+    <div class="row"><dt>Script running on every page</dt><span class="val">1.5 KB</span><dd class="how">Gzipped. It attaches to one video and nothing else</dd></div>
+  </dl>
+  <p class="note">Every figure above was measured on the relay path. Two devices that can reach each other skip the relay entirely and talk over an encrypted peer connection, which should be faster again — that one has not been measured across two machines yet, so it is not quoted here. When the direct path cannot be established, it falls back to the relay without dropping a command.</p>
+</section>
+
+<section id="get">
+  <h2>Install it in two minutes</h2>
+  <p class="sub">Not on a store yet, so it loads unpacked. Works in Chrome, Brave, Edge, Arc and anything else built on Chromium.</p>
+  <div class="get glass">
+    <div>
+      <h3>Get the extension</h3>
+      <p>One 87&nbsp;KB zip. A relay is already running, so there is no server to set up and nothing to sign into.</p>
+      <div class="contact">
+        <a class="btn btn-primary" href="https://github.com/0xAnirudh/duo/releases/download/v1.0.0/dualcontrol-1.0.0.zip" download>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 19.5h14"/></svg>
+          Download v1.0.0
+        </a>
+        <a class="btn" href="mailto:anirudhchourey5@gmail.com?subject=DualControl">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="m3.8 7.2 7.1 5.1a2 2 0 0 0 2.2 0l7.1-5.1"/></svg>
+          Email the developer
+        </a>
+      </div>
+    </div>
+    <div class="install">
+      <div class="ins"><span>1</span><span>Unzip the download.</span></div>
+      <div class="ins"><span>2</span><span>Open <code>chrome://extensions</code>.</span></div>
+      <div class="ins"><span>3</span><span>Turn on <b>Developer mode</b>, top right.</span></div>
+      <div class="ins"><span>4</span><span>Click <b>Load unpacked</b>, pick the folder holding <code>manifest.json</code>.</span></div>
+      <div class="ins"><span>5</span><span>Repeat on the other device.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>© 2026 Anirudh Chourey. All rights reserved.</span>
+  <span class="sep">
+    <a href="https://github.com/0xAnirudh/duo">GitHub</a>
+    <a href="/privacy">Privacy</a>
+    <a href="mailto:anirudhchourey5@gmail.com">Contact</a>
+  </span>
+</footer>
+
+</div>
+</div>
+
+<script>
+(function(){
+  var DUR=214, LAT=3, measured=false;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var A={pane:paneA,bar:barA,fill:fillA,knob:knobA,scan:scanA,stamp:stampA,tag:tagA,film:paneA.querySelector('.film')};
+  var B={pane:paneB,bar:barB,fill:fillB,knob:knobB,scan:scanB,stamp:stampB,tag:tagB,film:paneB.querySelector('.film')};
+
+  var head=.28, target=.28, follow=.28;
+  var driver=A, dragging=false, auto=!reduce;
+  var queue=[], lastSent=-1, lastAt=0, pipAnim=null, resume=0;
+
+  function other(){ return driver===A?B:A; }
+  function fmt(p){var s=Math.max(0,Math.round(p*DUR));
+    return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+
+  function paint(o,p){
+    var pct=(p*100).toFixed(3)+'%';
+    o.fill.style.width=pct; o.knob.style.left=pct; o.scan.style.left=pct;
+    o.stamp.textContent=fmt(p);
+    o.bar.setAttribute('aria-valuenow',Math.round(p*100));
+  }
+
+  function roles(){
+    driver.pane.classList.remove('is-follower');
+    other().pane.classList.add('is-follower');
+    driver.tag.innerHTML=(driver===A?'This device':'Their device')+' \u00b7 <b>driving</b>';
+    other().tag.textContent=(other()===A?'This device':'Their device')+' \u00b7 following';
+  }
+
+  function send(v,now){
+    queue.push({at:now+LAT,v:v});
+    if(reduce) return;
+    if(pipAnim) pipAnim.cancel();
+    var from=driver===A?0:92, to=driver===A?92:0;
+    pip.style.opacity='1';
+    var a=pip.animate(
+      [{transform:'translateX('+from+'px)',opacity:0},
+       {transform:'translateX('+(from+to)/2+'px)',opacity:1,offset:.5},
+       {transform:'translateX('+to+'px)',opacity:0}],
+      {duration:400,easing:'cubic-bezier(.4,0,.2,1)'});
+    pipAnim=a;
+    a.onfinish=function(){ if(pipAnim===a){pip.style.opacity='0'; pipAnim=null;} };
+  }
+
+  function arrive(){
+    if(reduce) return;
+    var f=other().film;
+    f.style.filter='brightness(1.14) saturate(1.18)';
+    setTimeout(function(){ f.style.filter=''; },180);
+  }
+
+  function tick(now){
+    if(auto && !dragging){ target+=1/(DUR*60); if(target>1) target=0; }
+    head += (target-head)*(dragging?.55:1);
+    head=Math.min(1,Math.max(0,head));
+
+    var moved=Math.abs(head-lastSent)>.002;
+    var due=now-lastAt >= (dragging?100:1200);
+    if(moved&&due){ lastSent=head; lastAt=now; send(head,now); }
+
+    while(queue.length && queue[0].at<=now){ follow=queue.shift().v; arrive(); }
+
+    paint(driver,head); paint(other(),follow);
+    requestAnimationFrame(tick);
+  }
+
+  function pos(bar,e){
+    var r=bar.getBoundingClientRect();
+    return Math.min(1,Math.max(0,((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width));
+  }
+  function grab(o){
+    return function(e){
+      if(driver!==o){ driver=o; follow=head; roles(); }
+      dragging=true; auto=false; target=pos(o.bar,e); e.preventDefault();
+      window.addEventListener('pointermove',drag);
+      window.addEventListener('pointerup',drop);
+    };
+  }
+  function drag(e){ if(dragging) target=pos(driver.bar,e); }
+  function drop(){
+    dragging=false;
+    window.removeEventListener('pointermove',drag);
+    window.removeEventListener('pointerup',drop);
+    clearTimeout(resume);
+    if(!reduce) resume=setTimeout(function(){ auto=true; },1400);
+  }
+  function keys(o){
+    return function(e){
+      var d=e.key==='ArrowRight'?.02:e.key==='ArrowLeft'?-.02:0;
+      if(!d) return;
+      e.preventDefault();
+      if(driver!==o){ driver=o; follow=head; roles(); }
+      auto=false; target=Math.min(1,Math.max(0,target+d));
+      clearTimeout(resume);
+      if(!reduce) resume=setTimeout(function(){ auto=true; },1600);
+    };
+  }
+  [A,B].forEach(function(o){
+    o.bar.addEventListener('pointerdown',grab(o));
+    o.bar.addEventListener('keydown',keys(o));
+  });
+
+  var codes=['418293','730154','906287','245019'], ci=0;
+  if(!reduce) setInterval(function(){
+    if(document.hidden) return;
+    ci=(ci+1)%codes.length;
+    codeFace.animate([{opacity:1},{opacity:.25},{opacity:1}],{duration:520,easing:'ease-out'});
+    setTimeout(function(){ codeFace.textContent=codes[ci]; },260);
+  },3600);
+
+  (function(){
+    var t0=performance.now();
+    fetch('/health',{cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(){
+        var rtt=Math.round(performance.now()-t0);
+        measured=true;
+        LAT=Math.min(600,Math.max(1,rtt));
+        badge.innerHTML='Relay \u00b7 <b>'+rtt+'ms</b>';
+        badge.title='Round trip from this browser to the relay, measured just now';
+      })
+      .catch(function(){ badge.innerHTML='Relay \u00b7 <b>offline</b>'; });
+  })();
+
+  roles();
+  paint(A,head); paint(B,follow);
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
