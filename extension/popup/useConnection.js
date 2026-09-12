@@ -53,6 +53,7 @@ export function useConnection() {
     takeControl: () => run('takeControl'),
     setOffset: (ms) => run('setOffset', { ms }),
     setName: (name) => run('setName', { name }),
+    syncActiveTab: () => run('syncActiveTab'),
     leave: () => run('leave'),
   };
 }

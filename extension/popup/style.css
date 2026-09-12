@@ -503,3 +503,20 @@ body::after {
 .dc-chip .dc-ico {
   opacity: 0.6;
 }
+
+.dc-warn {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: rgba(255, 186, 84, 0.14);
+  border: 1px solid rgba(255, 186, 84, 0.3);
+  color: #ffd79a;
+  font-size: 12.5px;
+}
+
+.dc-tab {
+  max-width: 190px;
+  font-weight: 460;
+  font-size: 12px;
+  color: var(--ink-dim);
+}

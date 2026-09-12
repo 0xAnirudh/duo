@@ -1,5 +1,5 @@
 import { ensureOffscreen } from './offscreenManager.js';
-import { CH, T } from '../shared/protocol.js';
+import { CH, T, LOCAL } from '../shared/protocol.js';
 import {
   serverUrl,
   syncOffsetMs,
@@ -13,13 +13,20 @@ import {
   adoptActiveTab,
   ensureSyncedTab,
   syncedTabId,
+  syncedTabInfo,
 } from './urlSync.js';
 
 const MEDIA = new Set([T.PLAY, T.PAUSE, T.SEEK, T.RATE, T.HEARTBEAT]);
 
 const KEEPALIVE_ALARM = 'dc-keepalive';
 
-export const live = { paired: false, amController: false, you: null, syncOffsetMs: 0 };
+export const live = {
+  paired: false,
+  amController: false,
+  you: null,
+  syncOffsetMs: 0,
+  blocked: false,
+};
 
 async function boot() {
   live.syncOffsetMs = await syncOffsetMs();
@@ -98,6 +105,13 @@ function onOffscreenEvent(event) {
 }
 
 async function handlePopupQuery(message) {
+  if (message.cmd === 'syncActiveTab') {
+    await adoptActiveTab();
+    live.blocked = false;
+    await toContent({ type: 'status', status: live });
+    return { ok: true };
+  }
+
   if (message.cmd === 'setName') {
     const name = await setDeviceName(message.args?.name ?? '');
     await askOffscreen('sendName', {}).catch(() => {});
@@ -112,7 +126,13 @@ async function handlePopupQuery(message) {
 
   const res = await askOffscreen(message.cmd, message.args);
   if (message.cmd === 'status' && res && !res.error) {
-    return { ...res, syncOffsetMs: live.syncOffsetMs, deviceName: await deviceName() };
+    return {
+      ...res,
+      syncOffsetMs: live.syncOffsetMs,
+      deviceName: await deviceName(),
+      blocked: live.blocked,
+      syncedTab: await syncedTabInfo(),
+    };
   }
   return res;
 }
@@ -162,7 +182,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return false;
 
     case CH.FROM_CONTENT:
-
+      if (message.msg?.t === LOCAL) {
+        live.blocked = Boolean(message.msg.blocked);
+        toPopup({ type: 'status' });
+        return false;
+      }
       sendToPeer(message.msg);
       return false;
 

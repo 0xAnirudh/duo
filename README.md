@@ -10,6 +10,56 @@ doesn't drop commands.
 Works on any site with a `<video>` element, since it drives the standard
 `HTMLMediaElement` API instead of any specific player.
 
+A relay is already running at `https://dualcontrol.onrender.com`, so the
+extension works out of the box with no server to set up.
+
+![Paired](docs/screenshots/paired.png)
+
+## Install it
+
+Not on a store yet, so it installs unpacked. Two minutes, and it works on
+Chrome, Brave, Edge, Arc, Opera or any other Chromium browser.
+
+1. Download `dualcontrol-1.0.0.zip` from
+   [Releases](https://github.com/0xAnirudh/duo/releases), and unzip it.
+2. Open `chrome://extensions` (`brave://extensions`, `edge://extensions`).
+3. Turn on **Developer mode**, top right.
+4. Click **Load unpacked** and select the unzipped folder, the one containing
+   `manifest.json`.
+5. Repeat on the second device, or in a second browser profile.
+
+To build it yourself instead of downloading:
+
+```bash
+git clone https://github.com/0xAnirudh/duo.git
+cd duo/extension && npm install && npm run build
+```
+
+Then load `extension/dist` at step 4.
+
+### Pairing
+
+1. **Open the video first**, then click the extension. It syncs whichever tab
+   is in front when you pair. If you get it wrong, hit **Use the tab I'm on**.
+2. Click **Host a session**. Six digits appear.
+3. On the other device, click the extension, **Enter a code**, type them.
+
+A green dot and a latency reading in both popups means it is live. Play, pause
+and seek on the driving device; the other follows. The follower's own controls
+do nothing until it clicks **Take control**.
+
+If the follower will not start playing, the browser blocked autoplay on a tab
+nobody has touched. Click the video once. The popup says so when it happens.
+
+### Running your own relay
+
+The hosted one is a free instance and it is not private to you. To run your
+own, deploy `server/` anywhere that supports WebSockets, then set `serverUrl`
+in the extension's `chrome.storage.local`, or change `DEFAULT_SERVER` in
+`extension/shared/config.js` and rebuild. `render.yaml` and `fly.toml` are both
+in the repo. Vercel and Netlify cannot host it: it needs a persistent
+connection, not serverless functions.
+
 ## Numbers
 
 A 60Hz display refreshes every 16.7ms. Two screens that pause within one frame
@@ -130,30 +180,31 @@ carrying everything else. It changes once a session so latency doesn't matter,
 and a single authority stops both devices from thinking they're driving after a
 reconnect.
 
-## Running it
+## Working on it
 
-The extension defaults to a deployed relay. To run everything locally, change
-`DEFAULT_SERVER` in `extension/shared/config.js` or set `serverUrl` in
-`chrome.storage.local`, then:
+Run the relay locally by pointing `DEFAULT_SERVER` in
+`extension/shared/config.js` at `http://localhost:8787`, then:
 
 ```bash
 cd server && npm install && npm start
 ```
 
+Rebuild the extension after any change, and reload it at
+`chrome://extensions`:
+
 ```bash
 cd extension && npm install && npm run build
 ```
 
-Load `extension/dist` unpacked at `chrome://extensions`. Pair two Chrome
-profiles: Host a session on one, type the six digits into the other.
+Tests run in both packages, and the load test needs [k6](https://k6.io):
 
 ```bash
 npm test
 k6 run server/bench/k6-relay.js
 ```
 
-The server URL defaults to the deployed relay. Override it by setting
-`serverUrl` in `chrome.storage.local`.
+Two browser profiles on one machine exercise everything except the direct
+DataChannel, which needs two machines on the same network to be a real test.
 
 ## Protocol
 
@@ -176,6 +227,17 @@ Commands have to arrive. Heartbeats shouldn't queue behind a slow peer, because
 a late one reports a playback position that has already moved. On the relay they
 go out volatile; on the DataChannel they use a second channel opened with
 `{ ordered: false, maxRetransmits: 0 }`.
+
+## Privacy
+
+Full policy: [docs/privacy.md](docs/privacy.md).
+
+Short version: no accounts, no tracking, no analytics, nothing sold. Your
+device name and offset stay on your machine. **On the relay path the server can
+see the addresses of pages you push to the other device.** It forwards them and
+stores nothing, room state is in memory only, and the server code is in this
+repo so you can check. On the direct path the traffic never reaches the server
+at all.
 
 ## Security
 

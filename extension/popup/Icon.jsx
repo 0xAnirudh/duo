@@ -39,6 +39,13 @@ const PATHS = {
       <path d="M9.2 14.8 14.8 9.2" />
     </>
   ),
+  tab: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="3.5" />
+      <path d="M3.5 9.5h17" />
+      <path d="M8 7.2h.01" />
+    </>
+  ),
   back: <path d="M14 7.5 9.5 12l4.5 4.5" />,
   chevron: <path d="M7.5 10 12 14.5 16.5 10" />,
   close: (

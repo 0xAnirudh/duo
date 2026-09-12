@@ -96,7 +96,7 @@ function Guide({ onClose }) {
 }
 
 export default function App() {
-  const { status, error, busy, host, join, takeControl, leave, setOffset, setName } =
+  const { status, error, busy, host, join, takeControl, leave, setOffset, setName, syncActiveTab } =
     useConnection();
   const [mode, setMode] = useState(null);
   const [detail, setDetail] = useState(false);
@@ -174,12 +174,30 @@ export default function App() {
         </div>
       )}
 
+      {!guide && paired && status.blocked && (
+        <p className="dc-warn dc-fade">
+          The browser blocked playback. Click the video once, then try again.
+        </p>
+      )}
+
       {!guide && paired && (
         <div className="glass dc-body dc-fade">
           <div className="dc-row">
             <span className="dc-label">Driving</span>
             <span className="dc-value">{driver}</span>
           </div>
+
+          <div className="dc-row">
+            <span className="dc-label">Tab</span>
+            <span className="dc-value dc-tab" title={status.syncedTab?.url || ''}>
+              {status.syncedTab?.title || 'None picked'}
+            </span>
+          </div>
+
+          <button className="dc-btn" onClick={syncActiveTab} disabled={busy}>
+            <Icon name="tab" />
+            Use the tab I'm on
+          </button>
 
           <div className="dc-row">
             <span className="dc-label">Offset</span>

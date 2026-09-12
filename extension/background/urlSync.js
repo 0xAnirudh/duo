@@ -84,3 +84,14 @@ export async function ensureSyncedTab() {
   if ((await syncedTabId()) !== null) return;
   await adoptActiveTab();
 }
+
+export async function syncedTabInfo() {
+  const id = await syncedTabId();
+  if (id === null) return null;
+  try {
+    const tab = await chrome.tabs.get(id);
+    return { id, title: tab.title || tab.url || '', url: tab.url || '' };
+  } catch {
+    return null;
+  }
+}

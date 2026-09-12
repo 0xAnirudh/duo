@@ -28,6 +28,8 @@ export const RELAYED = new Set([
 
 export const UNRELIABLE = new Set([T.HEARTBEAT]);
 
+export const LOCAL = 'LOCAL';
+
 export const CH = {
   TO_OFFSCREEN: 'dc:to-offscreen',
   FROM_OFFSCREEN: 'dc:from-offscreen',

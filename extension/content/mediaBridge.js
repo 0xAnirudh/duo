@@ -1,4 +1,4 @@
-import { CH, T, TUNING } from '../shared/protocol.js';
+import { CH, T, TUNING, LOCAL } from '../shared/protocol.js';
 import { createSuppressor } from './echo.js';
 import { watchForVideo } from './videoTarget.js';
 import { expectedTime, decide, createRateController } from './drift.js';
@@ -95,7 +95,10 @@ function applyInbound(msg) {
         if (Math.abs(video.currentTime - target) > 0.05) {
           video.currentTime = target;
         }
-        video.play().catch((err) => post({ t: 'BLOCKED', reason: String(err?.name ?? err) }));
+        video
+          .play()
+          .then(() => post({ t: LOCAL, blocked: false }))
+          .catch((err) => post({ t: LOCAL, blocked: true, reason: String(err?.name ?? err) }));
       });
       break;
     }
