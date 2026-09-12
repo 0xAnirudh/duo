@@ -1,4 +1,4 @@
-export const DEFAULT_SERVER = 'http://localhost:8787';
+export const DEFAULT_SERVER = 'https://dualcontrol.onrender.com';
 
 export async function serverUrl() {
   const { serverUrl } = await chrome.storage.local.get('serverUrl');

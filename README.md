@@ -30,9 +30,12 @@ Relay numbers come from `k6 run server/bench/k6-relay.js` against localhost, so
 they measure the server's forwarding cost rather than the network. Drift
 numbers come from a simulated player in `npm test`.
 
-Not measured yet: relay latency over a real WAN link (needs a deployed region)
-and DataChannel latency on a real LAN (needs two machines). The popup shows the
-live path and its p50/p95, so both are readable once deployed.
+Measured against the deployed relay on Render's free tier, from India: one-way
+p50 272ms, p95 376ms. That number is almost entirely distance, not the server
+-- the same code forwards in 0.17ms on localhost. It is the argument for the
+direct path, and for picking a region near the people using it.
+
+Not measured yet: DataChannel latency on a real LAN, which needs two machines.
 
 ## Layout
 
@@ -118,6 +121,10 @@ reconnect.
 
 ## Running it
 
+The extension defaults to a deployed relay. To run everything locally, change
+`DEFAULT_SERVER` in `extension/shared/config.js` or set `serverUrl` in
+`chrome.storage.local`, then:
+
 ```bash
 cd server && npm install && npm start
 ```
@@ -134,7 +141,7 @@ npm test
 k6 run server/bench/k6-relay.js
 ```
 
-The server URL defaults to `http://localhost:8787`. Override it by setting
+The server URL defaults to the deployed relay. Override it by setting
 `serverUrl` in `chrome.storage.local`.
 
 ## Protocol
