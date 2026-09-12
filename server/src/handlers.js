@@ -1,5 +1,6 @@
 import { T } from './protocol.js';
 import { registerClock } from './clock.js';
+import { check, recordFailure, recordSuccess, clientIp } from './rateLimit.js';
 import {
   createRoom,
   joinByCode,
@@ -43,12 +44,25 @@ export function register(io, socket) {
     }
 
     if (msg.code) {
+      const ip = clientIp(socket);
+      const gate = check(ip);
+      if (!gate.allowed) return reply({ error: gate.error, retryInMs: gate.retryInMs });
+
       const { room, error } = joinByCode(String(msg.code).trim(), socket.id);
-      if (error) return reply({ error });
+      if (error) {
+        recordFailure(ip);
+        return reply({ error });
+      }
+      recordSuccess(ip);
       attach(socket, room);
       socket.to(room.roomId).emit(T.PEER_JOIN, { deviceId: socket.id });
       io.to(room.roomId).emit(T.CONTROLLER, { controllerId: room.controllerId });
       return reply({ room: roomView(room, socket.id) });
+    }
+
+    const hostGate = check(clientIp(socket));
+    if (!hostGate.allowed) {
+      return reply({ error: hostGate.error, retryInMs: hostGate.retryInMs });
     }
 
     const room = createRoom(socket.id);

@@ -3,6 +3,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { register } from './handlers.js';
 import { startSweeper, stats } from './rooms.js';
+import { sweep as sweepRateLimit } from './rateLimit.js';
 
 const PORT = Number(process.env.PORT) || 8787;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
@@ -26,6 +27,7 @@ io.on('connection', (socket) => {
 });
 
 startSweeper();
+setInterval(sweepRateLimit, 60_000).unref?.();
 
 httpServer.listen(PORT, () => {
   console.log(`[dualcontrol] listening on :${PORT} (cors: ${CORS_ORIGIN})`);
